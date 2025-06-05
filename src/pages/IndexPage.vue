@@ -129,55 +129,40 @@
         </div>
 
         <q-card class="q-pa-lg">
-          <q-form @submit="onContactSubmit" class="q-gutter-md">
+          <q-form ref="contactForm" @submit="onContactSubmit" class="q-gutter-md">
             <q-select
               v-model="form.type"
               :options="contactTypes"
               label="Select an Option"
               outlined
-              :rules="[(val) => !!val || 'Please select an option']"
+              class="q-mb-md"
             />
 
             <div class="row q-col-gutter-md">
-              <div class="col-12 col-md-6">
-                <q-input
-                  v-model="form.name"
-                  label="Name"
-                  outlined
-                  :rules="[(val) => !!val || 'Name is required']"
-                />
+              <div class="col-12 col-md-6 q-mb-md">
+                <q-input v-model="form.name" label="Name" class="q-ml-md" outlined />
               </div>
               <div class="col-12 col-md-6">
-                <q-input
-                  v-model="form.email"
-                  label="Email"
-                  type="email"
-                  outlined
-                  :rules="[
-                    (val) => !!val || 'Email is required',
-                    (val) => isValidEmail(val) || 'Please enter a valid email',
-                  ]"
-                />
+                <q-input v-model="form.email" label="Email" type="email" outlined />
               </div>
             </div>
 
             <div class="row q-col-gutter-md">
               <div class="col-12 col-md-6">
-                <q-input v-model="form.phone" label="Phone Number" mask="(###) ###-####" outlined />
+                <q-input
+                  v-model="form.phone"
+                  label="Phone Number"
+                  class="q-ml-md"
+                  mask="(###) ###-####"
+                  outlined
+                />
               </div>
               <div class="col-12 col-md-6">
                 <q-input v-model="form.zipCode" label="Zip Code" mask="#####" outlined />
               </div>
             </div>
 
-            <q-input
-              v-model="form.message"
-              label="Message"
-              type="textarea"
-              outlined
-              rows="4"
-              :rules="[(val) => !!val || 'Message is required']"
-            />
+            <q-input v-model="form.message" label="Message" type="textarea" outlined rows="4" />
 
             <q-btn
               type="submit"
@@ -230,6 +215,7 @@ import { useQuasar } from 'quasar'
 import { usePaymentStore } from 'stores/payment'
 import { useAuthStore } from 'stores/auth'
 import { useRouter } from 'vue-router'
+import { api } from 'boot/axios'
 
 const $q = useQuasar()
 const loading = ref(false)
@@ -303,37 +289,76 @@ const form = ref({
   message: '',
 })
 
-function isValidEmail(email) {
-  const emailPattern =
-    /^(?=[a-zA-Z0-9@._%+-]{6,254}$)[a-zA-Z0-9._%+-]{1,64}@(?:[a-zA-Z0-9-]{1,63}\.){1,8}[a-zA-Z]{2,63}$/
-  return emailPattern.test(email)
-}
+// Add a ref for the form validation
+const contactForm = ref(null)
+
+// function isValidEmail(email) {
+//   const emailPattern =
+//     /^(?=[a-zA-Z0-9@._%+-]{6,254}$)[a-zA-Z0-9._%+-]{1,64}@(?:[a-zA-Z0-9-]{1,63}\.){1,8}[a-zA-Z]{2,63}$/
+//   return emailPattern.test(email)
+// }
 
 async function onContactSubmit() {
+  // First validate the form
+  const isValid = await contactForm.value.validate()
+  if (!isValid) {
+    return
+  }
+
   loading.value = true
   try {
-    // TODO: Implement contact form submission
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    // Format the message according to the required structure
+    const formattedMessage = `Category: ${form.value.type}\nName: ${form.value.name}\nPhone: ${form.value.phone}\nZip Code: ${form.value.zipCode}\nComment/Question: ${form.value.message}`
 
-    $q.notify({
-      type: 'positive',
-      message: 'Thank you for your message! We will get back to you soon.',
+    // Create form data
+    const formData = new FormData()
+    formData.append('email', form.value.email)
+    formData.append('message', formattedMessage)
+
+    // Make API request
+    const response = await api.post('/support', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Accept: 'application/json',
+      },
     })
 
-    // Reset form
-    form.value = {
-      type: null,
-      name: '',
-      email: '',
-      phone: '',
-      zipCode: '',
-      message: '',
+    // Check if the response contains a success message
+    if (response.data.message === 'Support Request Submitted Successfully.') {
+      // Reset form validation first
+      contactForm.value.reset()
+      contactForm.value.resetValidation()
+
+      // Then reset form data
+      form.value = {
+        type: null,
+        name: '',
+        email: '',
+        phone: '',
+        zipCode: '',
+        message: '',
+      }
+
+      $q.notify({
+        type: 'positive',
+        message: 'Thank you for your message! We will get back to you soon.',
+        position: 'top',
+      })
+    } else {
+      // Handle unexpected response
+      console.warn('Unexpected response:', response.data)
+      throw new Error('Unexpected response from server')
     }
-  } catch {
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to send message. Please try again.',
-    })
+  } catch (error) {
+    console.error('Contact form submission error:', error)
+    // Only show error notification if it's not a success message
+    if (error.message !== 'Support Request Submitted Successfully.') {
+      $q.notify({
+        type: 'negative',
+        message: error.response?.data?.message || 'Failed to send message. Please try again.',
+        position: 'top',
+      })
+    }
   } finally {
     loading.value = false
   }

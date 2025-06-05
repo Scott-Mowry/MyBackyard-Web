@@ -2,6 +2,10 @@ import { useAuthStore } from 'stores/auth'
 
 const routes = [
   {
+    path: '/login',
+    redirect: '/auth/login',
+  },
+  {
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
     children: [

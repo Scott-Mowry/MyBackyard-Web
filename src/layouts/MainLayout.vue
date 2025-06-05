@@ -124,7 +124,7 @@
               </div>
               <div class="row items-center">
                 <q-icon name="phone" size="sm" class="q-mr-sm" />
-                <span>(+1) 716 997-4674</span>
+                <span>716 997-4674</span>
               </div>
             </div>
           </div>

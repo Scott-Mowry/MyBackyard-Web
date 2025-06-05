@@ -1,8 +1,17 @@
 # My Backyard USA Web Application
 
-My Backyard USA is a web platform that connects users with local businesses and services in their area. The application provides a seamless experience for users to discover, interact with, and subscribe to premium features that enhance their local business discovery experience.
+My Backyard USA is a web platform that connects users with local businesses and services in their area. The application provides a seamless experience for users to discover, interact with, and subscribe to premium features that enhance their local business discovery experience. The application is available as both a web platform and native mobile apps for iOS and Android, built using Quasar Framework with Capacitor for native mobile capabilities.
 
 ## Features
+
+### Cross-Platform Support
+
+- Web application
+- iOS native app (via Quasar/Capacitor)
+- Android native app (via Quasar/Capacitor)
+- Shared codebase using Quasar Framework
+- Native device features integration
+- Single codebase for all platforms
 
 ### User Management
 
@@ -37,11 +46,15 @@ My Backyard USA is a web platform that connects users with local businesses and 
 
 - **Frontend Framework**: Vue.js 3 with Composition API
 - **UI Framework**: Quasar Framework
+- **Mobile Build**: Quasar/Capacitor
 - **State Management**: Pinia
 - **Routing**: Vue Router
 - **HTTP Client**: Axios
 - **Authentication**: JWT (JSON Web Tokens)
 - **API Integration**: RESTful API
+- **Mobile Build Tools**:
+  - iOS: Xcode
+  - Android: Android Studio
 
 ## Project Structure
 
@@ -55,8 +68,188 @@ my-backyard-usa-web/
 │   ├── router/           # Vue Router configuration
 │   ├── stores/           # Pinia stores
 │   └── assets/           # Static assets
+├── src-capacitor/        # Capacitor specific files
+│   ├── capacitor.config.ts # Capacitor configuration
+│   ├── android/          # Android project files
+│   └── ios/              # iOS project files
 ├── public/               # Public static files
 └── package.json         # Project dependencies
+```
+
+## Mobile App Development
+
+### Prerequisites for Mobile Development
+
+- **iOS Development**:
+
+  - macOS operating system
+  - Xcode 14 or higher
+  - iOS 13 or higher
+  - CocoaPods
+
+- **Android Development**:
+  - Android Studio
+  - JDK 11 or higher
+  - Android SDK
+  - Gradle
+
+### Mobile App Setup
+
+1. Add Capacitor mode to your Quasar project:
+
+```bash
+quasar mode add capacitor
+```
+
+2. Add platforms:
+
+```bash
+# Add Android
+quasar capacitor add android
+
+# Add iOS
+quasar capacitor add ios
+```
+
+3. Install required Capacitor plugins:
+
+```bash
+# Core plugins
+npm install @capacitor/core @capacitor/cli
+
+# Device features
+npm install @capacitor/camera
+npm install @capacitor/geolocation
+npm install @capacitor/push-notifications
+npm install @capacitor/app
+npm install @capacitor/haptics
+npm install @capacitor/keyboard
+npm install @capacitor/status-bar
+npm install @capacitor/storage
+```
+
+### Mobile App Development Workflow
+
+1. Development with live reload:
+
+```bash
+# For Android
+quasar dev -m capacitor -T android
+
+# For iOS
+quasar dev -m capacitor -T ios
+```
+
+2. Build for production:
+
+```bash
+# For Android
+quasar build -m capacitor -T android
+
+# For iOS
+quasar build -m capacitor -T ios
+```
+
+3. Run on device/emulator:
+
+```bash
+# For Android
+quasar capacitor run android
+
+# For iOS
+quasar capacitor run ios
+```
+
+### Mobile-Specific Features
+
+- Push Notifications
+- Camera access
+- Geolocation services
+- Native device storage
+- Biometric authentication
+- Deep linking
+- App store integration
+- Native device features through Capacitor APIs
+
+### Building for Production
+
+#### Android
+
+1. Update version in `src-capacitor/capacitor.config.ts`
+2. Generate signed APK/Bundle:
+
+```bash
+quasar build -m capacitor -T android --release
+```
+
+3. Test the release build
+4. Submit to Google Play Store
+
+#### iOS
+
+1. Update version in `src-capacitor/capacitor.config.ts`
+2. Build for production:
+
+```bash
+quasar build -m capacitor -T ios --release
+```
+
+3. Open Xcode and archive the app
+4. Submit to App Store
+
+### Environment Setup
+
+Create a `.env` file with mobile-specific variables:
+
+```env
+VUE_APP_API_URL=https://admin.mybackyardusa.com/public/api
+VUE_APP_MOBILE=true
+VUE_APP_PUSH_NOTIFICATIONS=true
+```
+
+### Mobile App Configuration
+
+The `src-capacitor/capacitor.config.ts` file contains important mobile app settings:
+
+```typescript
+import { CapacitorConfig } from '@capacitor/cli'
+
+const config: CapacitorConfig = {
+  appId: 'com.mybackyardusa.app',
+  appName: 'My Backyard USA',
+  webDir: 'dist/spa',
+  server: {
+    androidScheme: 'https',
+    iosScheme: 'https',
+  },
+  plugins: {
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+    SplashScreen: {
+      launchShowDuration: 3000,
+      backgroundColor: '#FFFFFF',
+      androidSplashResourceName: 'splash',
+      androidScaleType: 'CENTER_CROP',
+      showSpinner: true,
+      spinnerColor: '#999999',
+    },
+    Camera: {
+      permissions: ['camera'],
+    },
+    Geolocation: {
+      permissions: ['location'],
+    },
+  },
+  android: {
+    minWebViewVersion: 55,
+  },
+  ios: {
+    contentInset: 'always',
+  },
+}
+
+export default config
 ```
 
 ## Key Features Implementation

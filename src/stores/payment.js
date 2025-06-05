@@ -15,63 +15,292 @@ export const usePaymentStore = defineStore('payment', () => {
 
   /**
    * Add a new payment method (credit card)
-   * @param {Object} cardDetails - The card details
-   * @param {string} cardDetails.card_number - Card number
-   * @param {string} cardDetails.card_holder_name - Name on the card
-   * @param {string} cardDetails.expiry_date - Expiration date (MM/YY)
-   * @param {string} cardDetails.ccv - Card security code
+   * @param {Object} payload – The payment details payload
+   * @param {string} payload.user_id – (Optional) User ID (if not provided, authStore.user.id is used)
+   * @param {string} payload.card_number – Card number
+   * @param {string} payload.expiration_date – Expiration date (MM/YY)
+   * @param {string} payload.ccv – Card security code
+   * (Optional fields: firstname, lastname, company, address, city, state, zipcode, country)
    */
-  async function addPaymentMethod(cardDetails) {
+  async function addPaymentMethod(payload) {
     loading.value = true
+    console.log('Starting addPaymentMethod with payload:', payload)
     try {
       if (!authStore.user?.id) {
+        console.error('User not authenticated - no user ID found')
         throw new Error('User not authenticated')
       }
 
-      const formData = new FormData()
-      formData.append('user_id', authStore.user.id)
-      formData.append('card_number', cardDetails.card_number)
-      formData.append('card_holder_name', cardDetails.card_holder_name)
-      formData.append('expiration_date', cardDetails.expiry_date)
-      formData.append('ccv', cardDetails.ccv)
+      // Validate required fields
+      const requiredFields = [
+        'card_number',
+        'firstname',
+        'lastname',
+        'address',
+        'city',
+        'state',
+        'zipcode',
+        'country',
+        'expiration_date',
+        'ccv',
+      ]
 
-      // Log the request data
-      console.log('Payment request data:', {
-        user_id: authStore.user.id,
-        card_number: cardDetails.card_number,
-        card_holder_name: cardDetails.card_holder_name,
-        expiration_date: cardDetails.expiry_date,
-        ccv: cardDetails.ccv,
+      const missingFields = requiredFields.filter((field) => !payload[field])
+      if (missingFields.length > 0) {
+        console.error('Missing required fields:', missingFields)
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`)
+      }
+
+      // Create form data
+      const user = authStore.user
+      console.log('Processing payment for user:', {
+        id: user.id,
+        name: user.name,
+        email: user.email,
       })
 
-      const response = await api.post('/payment/add-card', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
+      // Helper function to clean string values
+      const cleanString = (str) => {
+        if (!str) return ''
+        return String(str).trim().replace(/\s+/g, ' ')
+      }
 
-      if (response.status === 200) {
-        $q.notify({
-          type: 'positive',
-          message: 'Payment method added successfully',
+      // Format expiration date (keep MM/YY format)
+      const formatExpirationDate = (date) => {
+        console.log('Formatting expiration date:', date)
+        if (!date) {
+          console.error('Empty expiration date provided')
+          return ''
+        }
+        try {
+          const [month, year] = date.split('/')
+          console.log('Split expiration date - month:', month, 'year:', year)
+
+          if (!month || !year) {
+            console.error('Invalid expiration date format - missing month or year:', {
+              month,
+              year,
+            })
+            throw new Error('Invalid expiration date format')
+          }
+
+          const monthNum = parseInt(month, 10)
+          const yearNum = parseInt(year, 10)
+          console.log('Parsed expiration date - monthNum:', monthNum, 'yearNum:', yearNum)
+
+          if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+            console.error('Invalid month value:', monthNum)
+            throw new Error('Invalid month')
+          }
+          if (isNaN(yearNum) || yearNum < 0 || yearNum > 99) {
+            console.error('Invalid year value:', yearNum)
+            throw new Error('Invalid year')
+          }
+
+          // Keep MM/YY format (e.g., 05/29)
+          const formattedDate = `${monthNum.toString().padStart(2, '0')}/${yearNum.toString().padStart(2, '0')}`
+          console.log('Formatted expiration date:', formattedDate)
+          return formattedDate
+        } catch (error) {
+          console.error('Error formatting expiration date:', {
+            error: error.message,
+            input: date,
+            stack: error.stack,
+          })
+          throw new Error('Invalid expiration date format')
+        }
+      }
+
+      // Format card number (remove spaces and validate)
+      const formatCardNumber = (number) => {
+        console.log('Formatting card number:', number)
+        if (!number) {
+          console.error('Empty card number provided')
+          return ''
+        }
+        const cleaned = number.replace(/\s/g, '')
+        if (!/^\d{16}$/.test(cleaned)) {
+          console.error('Invalid card number format - length:', cleaned.length)
+          throw new Error('Invalid card number format')
+        }
+        console.log('Card number validation passed')
+        return cleaned
+      }
+
+      // Format CCV (validate 3 digits)
+      const formatCCV = (ccv) => {
+        console.log('Formatting CCV:', ccv)
+        if (!ccv) {
+          console.error('Empty CCV provided')
+          return ''
+        }
+        const cleaned = ccv.trim()
+        if (!/^\d{3}$/.test(cleaned)) {
+          console.error('Invalid CCV format - length:', cleaned.length)
+          throw new Error('Invalid CCV format')
+        }
+        console.log('CCV validation passed')
+        return cleaned
+      }
+
+      try {
+        // Format and validate all fields first
+        console.log('Starting to format and validate all fields')
+        const formattedData = {
+          user_id: String(user.id),
+          card_number: formatCardNumber(payload.card_number),
+          expiration_date: formatExpirationDate(payload.expiration_date),
+          ccv: formatCCV(payload.ccv),
+          firstName: cleanString(payload.firstname),
+          lastName: cleanString(payload.lastname),
+          address: cleanString(payload.address),
+          city: cleanString(payload.city),
+          state: cleanString(payload.state),
+          zip: cleanString(payload.zipcode),
+          country: cleanString(payload.country),
+        }
+
+        // Add company if it exists
+        if (payload.company) {
+          formattedData.company = cleanString(payload.company)
+        }
+
+        console.log('Formatted data:', formattedData)
+
+        // Create a new FormData object
+        const formData = new FormData()
+
+        // Add fields in the exact order as Postman
+        const formDataFields = [
+          'user_id',
+          'card_number',
+          'expiration_date',
+          'ccv',
+          'firstName',
+          'lastName',
+          'company',
+          'address',
+          'city',
+          'state',
+          'zip',
+          'country',
+        ]
+
+        // Add each field to FormData in exact order
+        formDataFields.forEach((field) => {
+          if (
+            formattedData[field] !== undefined &&
+            formattedData[field] !== null &&
+            formattedData[field] !== ''
+          ) {
+            formData.append(field, String(formattedData[field]))
+          }
         })
-        return { success: true, data: response.data.data }
+
+        // Log the actual form data being sent
+        const formDataObj = {}
+        formData.forEach((value, key) => {
+          formDataObj[key] = value
+        })
+        console.log('Sending form data to API:', formDataObj)
+
+        // Make the API request with better error handling
+        try {
+          console.log('Making API request to /payment/add-card')
+          const response = await api.post('/payment/add-card', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              Accept: 'application/json',
+            },
+            validateStatus: function (status) {
+              return status >= 200 && status < 500
+            },
+          })
+
+          // Log the complete response
+          console.log('API Response:', {
+            status: response.status,
+            statusText: response.statusText,
+            data: response.data,
+            headers: response.headers,
+            requestData: formDataObj,
+          })
+
+          if (response.status === 200) {
+            console.log('Payment method added successfully')
+            $q.notify({ type: 'positive', message: 'Payment method added successfully' })
+            return { success: true, data: response.data.data }
+          } else if (response.status === 422) {
+            // Handle validation errors
+            console.error('Validation errors:', response.data)
+            const errorMessage = response.data.message || 'Validation failed'
+            const validationErrors = response.data.errors
+            if (validationErrors) {
+              const errorDetails = Object.entries(validationErrors)
+                .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+                .join('\n')
+              throw new Error(`${errorMessage}\n${errorDetails}`)
+            }
+            throw new Error(errorMessage)
+          } else if (response.status === 500) {
+            // Handle server errors with more detail
+            console.error('Server error details:', {
+              status: response.status,
+              data: response.data,
+              requestData: formDataObj,
+            })
+            throw new Error(response.data.message || 'Server error occurred. Please try again.')
+          } else {
+            console.error('Unexpected response:', response)
+            throw new Error(response.data.message || 'Failed to add payment method')
+          }
+        } catch (requestError) {
+          console.error('Request error:', {
+            error: requestError.message,
+            response: requestError.response?.data,
+            status: requestError.response?.status,
+            requestData: formDataObj,
+            stack: requestError.stack,
+          })
+          throw requestError
+        }
+      } catch (formatError) {
+        console.error('Data formatting error:', {
+          error: formatError.message,
+          stack: formatError.stack,
+        })
+        throw new Error(formatError.message || 'Invalid payment data format')
+      }
+    } catch (error) {
+      console.error('Error adding payment method:', {
+        error: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        headers: error.response?.headers,
+        requestData: error.config?.data,
+        validationErrors: error.response?.data?.errors,
+        stack: error.stack,
+      })
+
+      // Show appropriate error message
+      let errorMessage = 'Failed to add payment method'
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message
+      } else if (error.message) {
+        errorMessage = error.message
       }
 
       $q.notify({
         type: 'negative',
-        message: response.data.message || 'Failed to add payment method',
+        message: errorMessage,
+        timeout: 5000,
+        position: 'top',
       })
-      return { success: false, message: response.data.message }
-    } catch (error) {
-      console.error('Error adding payment method:', error)
-      $q.notify({
-        type: 'negative',
-        message: error.response?.data?.message || 'Failed to add payment method',
-      })
+
       return {
         success: false,
-        message: error.response?.data?.message || 'Failed to add payment method',
+        message: errorMessage,
       }
     } finally {
       loading.value = false
@@ -131,7 +360,8 @@ export const usePaymentStore = defineStore('payment', () => {
         headers: response.headers,
       })
 
-      if (response.data.success) {
+      // Check for success in the response data
+      if (response.data && response.data.success === true) {
         // Update user data to reflect new subscription
         await authStore.fetchUser()
         return { success: true, data: response.data.data }
