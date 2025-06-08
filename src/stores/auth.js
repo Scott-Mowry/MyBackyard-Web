@@ -13,9 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(credentials) {
     try {
-      console.log('Attempting login with credentials:', credentials)
       const response = await api.post('/login', credentials)
-      console.log('Login response:', response.data)
 
       if (response.data.status === 1 && response.data.data?.user) {
         const userData = response.data.data.user
@@ -33,7 +31,6 @@ export const useAuthStore = defineStore('auth', () => {
         // Save to localStorage
         localStorage.setItem('token', bearer_token)
 
-        console.log('Login successful, user data:', userData)
         return { success: true, message: 'Login successful' }
       }
 
@@ -75,11 +72,9 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     try {
-      console.log('Fetching user details')
       const response = await api.get('/user')
 
       if (response.data.status === 1 && response.data.data?.user) {
-        console.log('User details fetched successfully:', response.data.data.user)
         // Update user data
         user.value = response.data.data.user
         return { success: true, data: response.data.data }

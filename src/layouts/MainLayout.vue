@@ -140,6 +140,7 @@
                 :to="item.to"
                 :label="item.label"
                 class="text-weight-medium"
+                dense
               />
               <q-btn flat dense label="Terms" to="/terms" />
               <q-btn flat dense label="Privacy" to="/privacy" class="text-weight-medium" />
@@ -147,7 +148,7 @@
           </div>
 
           <!-- Newsletter -->
-          <div class="col-12 col-md-4">
+          <!-- <div class="col-12 col-md-4">
             <div class="text-h6 q-mb-md">Our Newsletter</div>
             <p class="text-body2 q-mb-md">
               Subscribe to our newsletter and stay updated with the latest news, offers, and
@@ -168,13 +169,14 @@
               />
               <q-btn type="submit" color="primary" label="Subscribe" unelevated />
             </q-form>
-          </div>
+          </div> -->
         </div>
 
         <q-separator color="grey-8" class="q-my-lg" />
 
         <div class="text-center text-caption">
-          &copy; {{ new Date().getFullYear() }} My Backyard USA. All rights reserved.
+          &copy; {{ new Date().getFullYear() }} My Backyard USA. All rights reserved. Each
+          subscription may take up to 24 hours to activate
         </div>
       </div>
     </q-footer>
@@ -185,13 +187,13 @@
 import { ref } from 'vue'
 import { useAuthStore } from 'stores/auth'
 import { useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
+// import { useQuasar } from 'quasar'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const $q = useQuasar()
+// const $q = useQuasar()
 const rightDrawerOpen = ref(false)
-const newsletterEmail = ref('')
+// const newsletterEmail = ref('')
 
 const navigationItems = [
   { label: 'Home', to: '/' },
@@ -213,28 +215,28 @@ function goToProfile() {
   router.push('/profile')
 }
 
-function isValidEmail(email) {
-  const emailPattern =
-    /^(?=[a-zA-Z0-9@._%+-]{6,254}$)[a-zA-Z0-9._%+-]{1,64}@(?:[a-zA-Z0-9-]{1,63}\.){1,8}[a-zA-Z]{2,63}$/
-  return emailPattern.test(email)
-}
+// function isValidEmail(email) {
+//   const emailPattern =
+//     /^(?=[a-zA-Z0-9@._%+-]{6,254}$)[a-zA-Z0-9._%+-]{1,64}@(?:[a-zA-Z0-9-]{1,63}\.){1,8}[a-zA-Z]{2,63}$/
+//   return emailPattern.test(email)
+// }
 
-async function onNewsletterSubmit() {
-  try {
-    // TODO: Implement newsletter subscription
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    $q.notify({
-      type: 'positive',
-      message: 'Thank you for subscribing to our newsletter!',
-    })
-    newsletterEmail.value = ''
-  } catch {
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to subscribe. Please try again.',
-    })
-  }
-}
+// async function onNewsletterSubmit() {
+//   try {
+//     // TODO: Implement newsletter subscription
+//     await new Promise((resolve) => setTimeout(resolve, 1000))
+//     $q.notify({
+//       type: 'positive',
+//       message: 'Thank you for subscribing to our newsletter!',
+//     })
+//     newsletterEmail.value = ''
+//   } catch {
+//     $q.notify({
+//       type: 'negative',
+//       message: 'Failed to subscribe. Please try again.',
+//     })
+//   }
+// }
 </script>
 
 <style lang="scss" scoped>

@@ -30,6 +30,16 @@ const routes = [
         component: () => import('pages/ContactPage.vue'),
       },
       {
+        path: 'terms',
+        name: 'terms',
+        component: () => import('pages/TermsPage.vue'),
+      },
+      {
+        path: 'privacy',
+        name: 'privacy',
+        component: () => import('pages/PrivacyPage.vue'),
+      },
+      {
         path: 'profile',
         name: 'profile',
         component: () => import('pages/ProfilePage.vue'),

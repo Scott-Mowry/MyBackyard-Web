@@ -13,7 +13,14 @@
               unmasked-value
               :rules="[
                 (val) => !!val || 'Card number is required',
-                (val) => val.length === 16 || 'Card number must be 16 digits',
+                (val) => {
+                  const cleaned = val.replace(/\s/g, '')
+                  return (
+                    cleaned.length === 15 ||
+                    cleaned.length === 16 ||
+                    'Card number must be 15 or 16 digits'
+                  )
+                },
               ]"
             />
 
@@ -21,31 +28,55 @@
             <q-input
               v-model="cardDetails.firstname"
               label="First Name"
-              :rules="[(val) => !!val || 'First name is required']"
+              maxlength="255"
+              :rules="[
+                (val) => !!val || 'First name is required',
+                (val) => val.length <= 255 || 'First name must be less than 255 characters',
+              ]"
             />
 
             <!-- Last Name -->
             <q-input
               v-model="cardDetails.lastname"
               label="Last Name"
-              :rules="[(val) => !!val || 'Last name is required']"
+              maxlength="255"
+              :rules="[
+                (val) => !!val || 'Last name is required',
+                (val) => val.length <= 255 || 'Last name must be less than 255 characters',
+              ]"
             />
 
             <!-- Company (Optional) -->
-            <q-input v-model="cardDetails.company" label="Company (Optional)" />
+            <q-input
+              v-model="cardDetails.company"
+              label="Company (Optional)"
+              maxlength="255"
+              :rules="[
+                (val) =>
+                  !val || val.length <= 255 || 'Company name must be less than 255 characters',
+              ]"
+            />
 
             <!-- Address -->
             <q-input
               v-model="cardDetails.address"
               label="Address"
-              :rules="[(val) => !!val || 'Address is required']"
+              maxlength="255"
+              :rules="[
+                (val) => !!val || 'Address is required',
+                (val) => val.length <= 255 || 'Address must be less than 255 characters',
+              ]"
             />
 
             <!-- City -->
             <q-input
-              v-model="cardDetails.city"
+              v-model="formattedCity"
               label="City"
-              :rules="[(val) => !!val || 'City is required']"
+              maxlength="255"
+              :rules="[
+                (val) => !!val || 'City is required',
+                (val) => val.length <= 255 || 'City must be less than 255 characters',
+              ]"
             />
 
             <!-- State Dropdown -->
@@ -135,7 +166,7 @@
               unmasked-value
               :rules="[
                 (val) => !!val || 'CCV is required',
-                (val) => val.length === 3 || 'CCV must be 3 digits',
+                (val) => val.replace(/\s/g, '').length === 3 || 'CCV must be 3 digits',
               ]"
             />
 
@@ -156,7 +187,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { usePaymentStore } from 'stores/payment'
 import { useAuthStore } from 'stores/auth'
@@ -237,6 +268,15 @@ const cardDetails = ref({
   ccv: '',
 })
 
+// Add computed property for city with capitalization
+const formattedCity = computed({
+  get: () => cardDetails.value.city,
+  set: (val) => {
+    // Capitalize first letter and make rest lowercase
+    cardDetails.value.city = val.charAt(0).toUpperCase() + val.slice(1).toLowerCase()
+  },
+})
+
 // Populate user data when component mounts
 onMounted(() => {
   const user = authStore.user
@@ -310,8 +350,6 @@ function handleExpirationDateUpdate(val) {
 
 async function onSubmit() {
   try {
-    console.log('Starting form submission with card details:', cardDetails.value)
-
     // Validate required fields
     const requiredFields = [
       'card_number',
@@ -337,11 +375,12 @@ async function onSubmit() {
     }
 
     // Validate card number length
-    if (cardDetails.value.card_number.length !== 16) {
-      console.error('Invalid card number length:', cardDetails.value.card_number.length)
+    const cleanedCardNumber = cardDetails.value.card_number.replace(/\s/g, '')
+    if (cleanedCardNumber.length !== 15 && cleanedCardNumber.length !== 16) {
+      console.error('Invalid card number length:', cleanedCardNumber.length)
       $q.notify({
         type: 'negative',
-        message: 'Card number must be 16 digits',
+        message: 'Card number must be 15 or 16 digits',
       })
       return
     }
@@ -358,7 +397,6 @@ async function onSubmit() {
 
     // Validate expiration date
     let expirationDate = cardDetails.value.expiration_date
-    console.log('Raw expiration date:', expirationDate)
 
     // Ensure the date has the proper format with slash
     if (expirationDate && !expirationDate.includes('/')) {
@@ -367,7 +405,6 @@ async function onSubmit() {
         const month = expirationDate.slice(0, 2)
         const year = expirationDate.slice(2)
         expirationDate = `${month}/${year}`
-        console.log('Formatted expiration date:', expirationDate)
       }
     }
 
@@ -417,18 +454,18 @@ async function onSubmit() {
       return
     }
 
-    // Create a clean copy of the data with properly formatted expiration date
+    // Create a clean copy of the data with properly formatted expiration date and removed spaces
     const paymentData = {
-      card_number: cardDetails.value.card_number,
+      card_number: cardDetails.value.card_number.replace(/\s/g, ''),
       firstname: cardDetails.value.firstname.trim(),
       lastname: cardDetails.value.lastname.trim(),
       address: cardDetails.value.address.trim(),
-      city: cardDetails.value.city.trim(),
+      city: cardDetails.value.city.trim().replace(/\s+/g, ' '),
       state: cardDetails.value.state.trim(),
-      zipcode: cardDetails.value.zipcode.trim(),
+      zipcode: cardDetails.value.zipcode.replace(/\s/g, ''),
       country: cardDetails.value.country.trim(),
       expiration_date: `${monthNum.toString().padStart(2, '0')}/${yearNum.toString().padStart(2, '0')}`,
-      ccv: cardDetails.value.ccv,
+      ccv: cardDetails.value.ccv.replace(/\s/g, ''),
     }
 
     // Add company only if it's not empty
@@ -436,14 +473,9 @@ async function onSubmit() {
       paymentData.company = cardDetails.value.company.trim()
     }
 
-    // Log the final formatted data
-    console.log('Prepared payment data for submission:', paymentData)
-
     const result = await paymentStore.addPaymentMethod(paymentData)
-    console.log('Payment method addition result:', result)
 
     if (result.success) {
-      console.log('Payment method added successfully')
       $q.notify({
         type: 'positive',
         message: 'Payment method added successfully',
@@ -452,7 +484,6 @@ async function onSubmit() {
       // Check if we have a plan ID in the query
       const planId = route.query.plan
       if (planId) {
-        console.log('Redirecting to payment page with plan:', planId)
         // If we have a plan ID, redirect to payment page
         router.push({
           name: 'payment',

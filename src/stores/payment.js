@@ -24,7 +24,6 @@ export const usePaymentStore = defineStore('payment', () => {
    */
   async function addPaymentMethod(payload) {
     loading.value = true
-    console.log('Starting addPaymentMethod with payload:', payload)
     try {
       if (!authStore.user?.id) {
         console.error('User not authenticated - no user ID found')
@@ -51,30 +50,23 @@ export const usePaymentStore = defineStore('payment', () => {
         throw new Error(`Missing required fields: ${missingFields.join(', ')}`)
       }
 
-      // Create form data
       const user = authStore.user
-      console.log('Processing payment for user:', {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      })
 
       // Helper function to clean string values
       const cleanString = (str) => {
         if (!str) return ''
-        return String(str).trim().replace(/\s+/g, ' ')
+        // Remove extra spaces and limit to 255 characters
+        return String(str).trim().replace(/\s+/g, ' ').slice(0, 255)
       }
 
       // Format expiration date (keep MM/YY format)
       const formatExpirationDate = (date) => {
-        console.log('Formatting expiration date:', date)
         if (!date) {
           console.error('Empty expiration date provided')
           return ''
         }
         try {
           const [month, year] = date.split('/')
-          console.log('Split expiration date - month:', month, 'year:', year)
 
           if (!month || !year) {
             console.error('Invalid expiration date format - missing month or year:', {
@@ -86,7 +78,6 @@ export const usePaymentStore = defineStore('payment', () => {
 
           const monthNum = parseInt(month, 10)
           const yearNum = parseInt(year, 10)
-          console.log('Parsed expiration date - monthNum:', monthNum, 'yearNum:', yearNum)
 
           if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
             console.error('Invalid month value:', monthNum)
@@ -99,7 +90,6 @@ export const usePaymentStore = defineStore('payment', () => {
 
           // Keep MM/YY format (e.g., 05/29)
           const formattedDate = `${monthNum.toString().padStart(2, '0')}/${yearNum.toString().padStart(2, '0')}`
-          console.log('Formatted expiration date:', formattedDate)
           return formattedDate
         } catch (error) {
           console.error('Error formatting expiration date:', {
@@ -113,39 +103,49 @@ export const usePaymentStore = defineStore('payment', () => {
 
       // Format card number (remove spaces and validate)
       const formatCardNumber = (number) => {
-        console.log('Formatting card number:', number)
         if (!number) {
           console.error('Empty card number provided')
           return ''
         }
+        // Remove all spaces and validate
         const cleaned = number.replace(/\s/g, '')
-        if (!/^\d{16}$/.test(cleaned)) {
+        if (!/^\d{15,16}$/.test(cleaned)) {
           console.error('Invalid card number format - length:', cleaned.length)
-          throw new Error('Invalid card number format')
+          throw new Error('Card number must be 15 or 16 digits')
         }
-        console.log('Card number validation passed')
         return cleaned
       }
 
       // Format CCV (validate 3 digits)
       const formatCCV = (ccv) => {
-        console.log('Formatting CCV:', ccv)
         if (!ccv) {
           console.error('Empty CCV provided')
           return ''
         }
-        const cleaned = ccv.trim()
+        // Remove all spaces and validate
+        const cleaned = ccv.replace(/\s/g, '')
         if (!/^\d{3}$/.test(cleaned)) {
           console.error('Invalid CCV format - length:', cleaned.length)
           throw new Error('Invalid CCV format')
         }
-        console.log('CCV validation passed')
+        return cleaned
+      }
+
+      // Format zipcode (remove spaces and validate)
+      const formatZipcode = (zip) => {
+        if (!zip) {
+          console.error('Empty zipcode provided')
+          return ''
+        }
+        const cleaned = zip.replace(/\s/g, '')
+        if (!/^\d{5}$/.test(cleaned)) {
+          console.error('Invalid zipcode format - length:', cleaned.length)
+          throw new Error('Invalid zipcode format')
+        }
         return cleaned
       }
 
       try {
-        // Format and validate all fields first
-        console.log('Starting to format and validate all fields')
         const formattedData = {
           user_id: String(user.id),
           card_number: formatCardNumber(payload.card_number),
@@ -156,21 +156,15 @@ export const usePaymentStore = defineStore('payment', () => {
           address: cleanString(payload.address),
           city: cleanString(payload.city),
           state: cleanString(payload.state),
-          zip: cleanString(payload.zipcode),
+          zip: formatZipcode(payload.zipcode),
           country: cleanString(payload.country),
         }
 
-        // Add company if it exists
         if (payload.company) {
           formattedData.company = cleanString(payload.company)
         }
 
-        console.log('Formatted data:', formattedData)
-
-        // Create a new FormData object
         const formData = new FormData()
-
-        // Add fields in the exact order as Postman
         const formDataFields = [
           'user_id',
           'card_number',
@@ -186,7 +180,6 @@ export const usePaymentStore = defineStore('payment', () => {
           'country',
         ]
 
-        // Add each field to FormData in exact order
         formDataFields.forEach((field) => {
           if (
             formattedData[field] !== undefined &&
@@ -197,16 +190,7 @@ export const usePaymentStore = defineStore('payment', () => {
           }
         })
 
-        // Log the actual form data being sent
-        const formDataObj = {}
-        formData.forEach((value, key) => {
-          formDataObj[key] = value
-        })
-        console.log('Sending form data to API:', formDataObj)
-
-        // Make the API request with better error handling
         try {
-          console.log('Making API request to /payment/add-card')
           const response = await api.post('/payment/add-card', formData, {
             headers: {
               'Content-Type': 'multipart/form-data',
@@ -217,17 +201,9 @@ export const usePaymentStore = defineStore('payment', () => {
             },
           })
 
-          // Log the complete response
-          console.log('API Response:', {
-            status: response.status,
-            statusText: response.statusText,
-            data: response.data,
-            headers: response.headers,
-            requestData: formDataObj,
-          })
-
           if (response.status === 200) {
-            console.log('Payment method added successfully')
+            // Update user details to get the new payment profile ID
+            await authStore.fetchUserDetails()
             $q.notify({ type: 'positive', message: 'Payment method added successfully' })
             return { success: true, data: response.data.data }
           } else if (response.status === 422) {
@@ -247,7 +223,6 @@ export const usePaymentStore = defineStore('payment', () => {
             console.error('Server error details:', {
               status: response.status,
               data: response.data,
-              requestData: formDataObj,
             })
             throw new Error(response.data.message || 'Server error occurred. Please try again.')
           } else {
@@ -259,7 +234,6 @@ export const usePaymentStore = defineStore('payment', () => {
             error: requestError.message,
             response: requestError.response?.data,
             status: requestError.response?.status,
-            requestData: formDataObj,
             stack: requestError.stack,
           })
           throw requestError
@@ -320,28 +294,10 @@ export const usePaymentStore = defineStore('payment', () => {
 
       // Convert planId to string if it's a number
       const subscriptionId = String(planId)
-
       const formData = new FormData()
       formData.append('user_id', String(authStore.user.id))
       formData.append('subscription_id', subscriptionId)
 
-      // Log the complete request details
-      console.log('Subscription request details:', {
-        user_id: authStore.user.id,
-        subscription_id: subscriptionId,
-        user: {
-          ...authStore.user,
-          payment_profile_id: authStore.user.payment_profile_id,
-          customer_profile_id: authStore.user.customer_profile_id,
-          sub_id: authStore.user.sub_id,
-        },
-        formData: Object.fromEntries(formData.entries()),
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
-
-      // Check if user has payment profile
       if (!authStore.user.payment_profile_id) {
         throw new Error('No payment profile found. Please add a payment method first.')
       }
@@ -352,18 +308,9 @@ export const usePaymentStore = defineStore('payment', () => {
         },
       })
 
-      // Log the complete response
-      console.log('Subscription response:', {
-        status: response.status,
-        statusText: response.statusText,
-        data: response.data,
-        headers: response.headers,
-      })
-
-      // Check for success in the response data
       if (response.data && response.data.success === true) {
         // Update user data to reflect new subscription
-        await authStore.fetchUser()
+        await authStore.fetchUserDetails()
         return { success: true, data: response.data.data }
       } else {
         console.error('Subscription failed:', {

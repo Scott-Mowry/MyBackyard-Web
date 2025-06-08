@@ -2,7 +2,7 @@
   "name": "my-backyard-usa-web",
   "version": "0.0.1",
   "description": "My Backyard USA",
-  "productName": "A web part of app for my-backyard-usa",
+  "productName": "My Backyard USA",
   "author": "Janlord Luga <janlord.luga@ethisphere.com>",
   "type": "module",
   "private": true,

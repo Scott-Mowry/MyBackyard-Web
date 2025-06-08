@@ -5,25 +5,37 @@
 
       <!-- Subscription Plans Grid -->
       <div class="row q-col-gutter-lg justify-center">
-        <div v-for="plan in paymentStore.subscriptions" :key="plan.id" class="col-12 col-md-4">
-          <q-card class="subscription-card" :class="{ premium: plan.name === 'Premium Package' }">
+        <div
+          v-for="plan in paymentStore.subscriptions"
+          :key="plan.id"
+          :class="['col-12', plan.id === 5 ? 'col-md-5 q-mt-lg q-mb-lg' : 'col-md-4']"
+        >
+          <q-card class="subscription-card" :class="{ 'highlighted-plan': plan.id === 5 }">
             <q-card-section class="text-center">
               <q-chip
-                v-if="plan.name === 'Premium Package'"
-                color="primary"
+                v-if="plan.id === 5"
+                color="orange"
                 text-color="white"
-                class="q-mb-sm"
-                >Most Popular</q-chip
+                class="q-mb-sm special-offer-chip"
+                >Special Offer</q-chip
               >
-              <div class="text-h5 q-mb-sm">{{ plan.name }}</div>
+              <div :class="plan.id === 5 ? 'text-h4' : 'text-h5'" class="q-mb-sm">
+                {{ plan.name }}
+              </div>
               <div class="text-subtitle1 text-grey-8 q-mb-sm">{{ plan.role }}</div>
-              <div class="text-h3 text-primary q-mb-md">
-                ${{ plan.price }}<span class="text-subtitle2">/{{ plan.type.toLowerCase() }}</span>
+              <div
+                :class="[plan.id === 5 ? 'text-h2 text-orange-8' : 'text-h3 text-primary']"
+                class="q-mb-md"
+              >
+                ${{ plan.price
+                }}<span :class="plan.id === 5 ? 'text-subtitle1' : 'text-subtitle2'"
+                  >/{{ plan.type.toLowerCase() }}</span
+                >
               </div>
               <q-list>
-                <q-item v-for="(point, index) in plan.sub_points" :key="index">
+                <q-item v-for="(point, idx) in plan.sub_points" :key="idx">
                   <q-item-section avatar>
-                    <q-icon name="check" color="positive" />
+                    <q-icon name="check" :color="plan.id === 5 ? 'orange' : 'positive'" />
                   </q-item-section>
                   <q-item-section>{{ point }}</q-item-section>
                 </q-item>
@@ -32,8 +44,8 @@
 
             <q-card-actions align="center" class="q-pa-md">
               <q-btn
-                label="Select Plan"
-                color="primary"
+                :color="plan.id === 5 ? 'orange' : 'primary'"
+                :label="plan.id === 5 ? 'Get Special Offer' : 'Select Plan'"
                 :loading="paymentStore.loading"
                 @click="handleSubscribe(plan)"
                 unelevated
@@ -106,8 +118,29 @@ onMounted(async () => {
     transform: translateY(-5px);
   }
 
-  &.premium {
-    border: 2px solid var(--q-primary);
+  &.highlighted-plan {
+    border: 3px solid var(--q-orange-7);
+    background: white;
+    box-shadow: 0 8px 24px rgba(255, 152, 0, 0.2);
+    transform: scale(1.05);
+
+    .special-offer-chip {
+      font-size: 1.1em;
+      padding: 8px 16px;
+    }
+
+    .text-h4 {
+      color: var(--q-orange-9);
+      font-weight: bold;
+    }
+
+    .text-h2 {
+      font-weight: bold;
+    }
+
+    &:hover {
+      transform: scale(1.08);
+    }
   }
 }
 
