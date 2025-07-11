@@ -39,6 +39,20 @@
       </div>
     </section>
 
+    <!-- Trusted Vendors Section -->
+    <section class="trusted-vendors-section q-pa-xl text-center">
+      <div class="container q-mx-auto" style="max-width: 1200px">
+        <div class="text-h4 text-weight-bold q-mb-xl">Trusted Vendors</div>
+        <div class="row q-col-gutter-xl justify-center items-center q-mt-md">
+          <div class="col-12 col-sm-4 q-mb-md" v-for="vendor in trustedVendors" :key="vendor.name">
+            <a :href="vendor.url" target="_blank" rel="noopener noreferrer">
+              <img :src="vendor.img" :alt="vendor.name" class="trusted-vendor-img" />
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- About Section -->
     <section id="about" class="about-section q-pa-xl">
       <div class="container q-mx-auto" style="max-width: 1200px">
@@ -91,7 +105,7 @@
                   >Special Offer</q-chip
                 >
                 <div :class="plan.id === 5 ? 'text-h4' : 'text-h5'" class="q-mb-sm">
-                  {{ plan.name }}
+                  {{ plan.id === 5 ? 'Summer Bogo' : plan.name }}
                 </div>
                 <div class="text-subtitle1 text-grey-8 q-mb-sm">{{ plan.role }}</div>
                 <div
@@ -100,8 +114,8 @@
                 >
                   ${{ plan.price
                   }}<span :class="plan.id === 5 ? 'text-subtitle1' : 'text-subtitle2'"
-                    >/{{ plan.type.toLowerCase() }}</span
-                  >
+                    >/ {{ plan.id === 5 ? 'One Time' : plan.type.toLowerCase() }}
+                  </span>
                 </div>
                 <q-list>
                   <q-item v-for="(point, idx) in plan.sub_points" :key="idx">
@@ -424,6 +438,39 @@ async function handleSubscriptionClick(plan) {
   })
 }
 
+const trustedVendors = [
+  {
+    name: 'Wandercrust Pizza Company',
+    url: 'https://wandercrustpizzacompany.com/',
+    img: '/pizza.jpeg',
+  },
+  {
+    name: 'Splendid Health Insurance',
+    url: 'http://splendidhealthins.com/',
+    img: '/splendid.jpeg',
+  },
+  {
+    name: 'Travel With Rey and Karla',
+    url: 'https://rcruzsoto.dreamvacations.com/home-page',
+    img: '/dream.jpeg',
+  },
+  {
+    name: 'Dryer Vent Superheros',
+    url: 'https://dryerventheroes.com/',
+    img: '/driver.jpeg',
+  },
+  {
+    name: 'RBM Business Holdings Inc',
+    url: 'https://rbmbusinessholdingsinc.com/',
+    img: '/rbm.jpg', // If you have this image, otherwise remove this entry or update the path
+  },
+  {
+    name: 'Digify Local',
+    url: 'https://digifylocal.com',
+    img: '/digify.jpeg',
+  },
+]
+
 onMounted(async () => {
   await paymentStore.fetchSubscriptions()
 })
@@ -548,5 +595,46 @@ html {
   &:active {
     transform: scale(0.95);
   }
+}
+
+.trusted-vendors-section {
+  background: #f8fafc;
+  padding: 60px 20px;
+}
+
+.trusted-vendor-img {
+  height: 320px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s;
+  padding: 20px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 600px) {
+  .trusted-vendor-img {
+    width: 90vw;
+    max-width: 320px;
+    height: auto;
+    padding: 12px;
+  }
+}
+
+.trusted-vendor-img:hover {
+  transform: scale(1.07);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+
+// Optionally, center images vertically in their grid cell
+.trusted-vendors-section .row > .col-12 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>
