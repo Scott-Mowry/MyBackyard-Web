@@ -118,16 +118,32 @@
           <q-card class="q-mt-md q-pa-md">
             <q-card-section>
               <div class="text-h6 q-mb-md">Subscription</div>
-              <div v-if="user?.sub_id" class="text-positive">
-                <q-icon name="check_circle" size="1.5rem" class="q-mr-sm" />
-                Active Subscription
+              <div
+                v-if="user?.sub_id"
+                :class="isSubscriptionCancelled ? 'text-negative' : 'text-positive'"
+              >
+                <q-icon
+                  :name="isSubscriptionCancelled ? 'cancel' : 'check_circle'"
+                  size="1.5rem"
+                  class="q-mr-sm"
+                />
+                {{ isSubscriptionCancelled ? 'Cancelled Subscription' : 'Active Subscription' }}
                 <div class="text-caption q-mt-sm">Subscription ID: {{ user.sub_id }}</div>
-                <div class="q-mt-md">
+                <div v-if="isSubscriptionCancelled" class="text-caption text-negative q-mt-xs">
+                  ⚠️ Your subscription has been cancelled
+                </div>
+                <div class="q-mt-md q-gutter-sm">
                   <q-btn
                     color="primary"
                     label="View Current Plan"
                     :to="{ name: 'current-subscription' }"
                     unelevated
+                  />
+                  <q-btn
+                    color="grey-7"
+                    label="Manage Subscription"
+                    :to="{ name: 'current-subscription' }"
+                    outline
                   />
                 </div>
               </div>
@@ -149,12 +165,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from 'stores/auth'
+import { usePaymentStore } from 'stores/payment'
 import { useQuasar } from 'quasar'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
+const paymentStore = usePaymentStore()
 const loading = ref(false)
 
 const user = ref(null)
@@ -166,6 +184,11 @@ const form = ref({
   address: '',
   latitude: '',
   longitude: '',
+})
+
+// Check if subscription is cancelled
+const isSubscriptionCancelled = computed(() => {
+  return paymentStore.unsubStatus === 1
 })
 
 function isValidEmail(email) {
@@ -192,7 +215,7 @@ function getProfileImageUrl(path) {
   return `https://admin.mybackyardusa.com/public${path}`
 }
 
-onMounted(() => {
+onMounted(async () => {
   // Use the user data from auth store
   user.value = authStore.user
   if (user.value) {
@@ -204,6 +227,15 @@ onMounted(() => {
       address: user.value.address || '',
       latitude: user.value.latitude || '',
       longitude: user.value.longitude || '',
+    }
+  }
+
+  // Check unsubscribe status if user has subscription
+  if (user.value?.sub_id) {
+    try {
+      await paymentStore.checkUnsub()
+    } catch (error) {
+      console.warn('Could not check unsubscribe status:', error)
     }
   }
 })

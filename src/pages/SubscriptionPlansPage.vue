@@ -10,8 +10,23 @@
           :key="plan.id"
           :class="['col-12', plan.id === 5 ? 'col-md-5 q-mt-lg q-mb-lg' : 'col-md-4']"
         >
-          <q-card class="subscription-card" :class="{ 'highlighted-plan': plan.id === 5 }">
+          <q-card
+            class="subscription-card"
+            :class="{
+              'highlighted-plan': plan.id === 5,
+              'popular-plan': plan.is_popular,
+            }"
+          >
             <q-card-section class="text-center">
+              <!-- Popular Badge -->
+              <q-chip
+                v-if="plan.is_popular"
+                color="orange"
+                text-color="white"
+                class="q-mb-sm popular-chip"
+                >Popular</q-chip
+              >
+              <!-- Special Offer Badge -->
               <q-chip
                 v-if="plan.id === 5"
                 color="orange"
@@ -23,14 +38,22 @@
                 {{ plan.name }}
               </div>
               <div class="text-subtitle1 text-grey-8 q-mb-sm">{{ plan.role }}</div>
+              <!-- Enhanced billing cycle display -->
+              <div class="text-caption text-grey-7 q-mb-xs" v-if="plan.billing_cycle">
+                Billing: {{ plan.billing_cycle }}
+              </div>
               <div
                 :class="[plan.id === 5 ? 'text-h2 text-orange-8' : 'text-h3 text-primary']"
                 class="q-mb-md"
               >
-                ${{ plan.price
-                }}<span :class="plan.id === 5 ? 'text-subtitle1' : 'text-subtitle2'"
-                  >/{{ plan.type.toLowerCase() }}</span
+                {{ plan.formatted_price || `$${plan.price}` }}
+                <span :class="plan.id === 5 ? 'text-subtitle1' : 'text-subtitle2'"
+                  >/{{ plan.billing_cycle || plan.type.toLowerCase() }}</span
                 >
+              </div>
+              <!-- Plan description -->
+              <div v-if="plan.description" class="text-body2 text-grey-7 q-mb-md">
+                {{ plan.description }}
               </div>
               <q-list>
                 <q-item v-for="(point, idx) in plan.sub_points" :key="idx">
@@ -44,8 +67,14 @@
 
             <q-card-actions align="center" class="q-pa-md">
               <q-btn
-                :color="plan.id === 5 ? 'orange' : 'primary'"
-                :label="plan.id === 5 ? 'Get Special Offer' : 'Select Plan'"
+                :color="plan.id === 5 ? 'orange' : plan.is_popular ? 'orange' : 'primary'"
+                :label="
+                  plan.id === 5
+                    ? 'Get Special Offer'
+                    : plan.is_popular
+                      ? 'Choose Popular Plan'
+                      : 'Select Plan'
+                "
                 :loading="paymentStore.loading"
                 @click="handleSubscribe(plan)"
                 unelevated
@@ -61,11 +90,12 @@
 
 <script setup>
 import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { usePaymentStore } from 'stores/payment'
 import { useAuthStore } from 'stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const paymentStore = usePaymentStore()
 const authStore = useAuthStore()
 
@@ -93,10 +123,24 @@ async function handleSubscribe(plan) {
     return
   }
 
+  // Build payment page query params
+  const query = { plan: plan.id }
+
+  // Pass through any special parameters (replace, upgrade, change)
+  if (route.query.replace === 'true') {
+    query.replace = 'true'
+  }
+  if (route.query.upgrade === 'true') {
+    query.upgrade = 'true'
+  }
+  if (route.query.change === 'true') {
+    query.change = 'true'
+  }
+
   // If user is logged in and has payment profile, proceed to payment page
   router.push({
     name: 'payment',
-    query: { plan: plan.id },
+    query: query,
   })
 }
 
@@ -116,6 +160,22 @@ onMounted(async () => {
 
   &:hover {
     transform: translateY(-5px);
+  }
+
+  &.popular-plan {
+    border: 2px solid var(--q-orange-6);
+    background: white;
+    box-shadow: 0 6px 20px rgba(255, 152, 0, 0.15);
+    transform: scale(1.02);
+
+    .popular-chip {
+      font-size: 1em;
+      padding: 6px 12px;
+    }
+
+    &:hover {
+      transform: scale(1.05);
+    }
   }
 
   &.highlighted-plan {
