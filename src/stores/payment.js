@@ -13,6 +13,15 @@ export const usePaymentStore = defineStore('payment', () => {
   const subscriptions = ref([])
   const cardDetails = ref(null)
 
+  // Unsubscribe state
+  const unsubStatus = ref(0) // 0 = active, 1 = pending unsubscribe
+  const unsubLoading = ref(false)
+  const unsubMessage = ref('')
+
+  // Recurring subscription state
+  const recurringStatus = ref(null)
+  const recurringLoading = ref(false)
+
   /**
    * Add a new payment method (credit card)
    * @param {Object} payload – The payment details payload
@@ -359,17 +368,20 @@ export const usePaymentStore = defineStore('payment', () => {
     }
   }
 
-  async function fetchSubscriptions() {
+  /**
+   * Fetch subscriptions using V2 API with enhanced fields
+   */
+  async function fetchSubscriptionsV2() {
     loading.value = true
     try {
-      const response = await api.get('/getSub')
-      if (response.data.status === 1) {
-        subscriptions.value = response.data.data.subcriptions
+      const response = await api.get('/v2/getSub')
+      if (response.data.success) {
+        subscriptions.value = response.data.data.subscriptions
         return { success: true, data: response.data.data }
       }
       return { success: false, message: response.data.message }
     } catch (error) {
-      console.error('Error fetching subscriptions:', error)
+      console.error('Error fetching V2 subscriptions:', error)
       return {
         success: false,
         message: error.response?.data?.message || 'Failed to fetch subscriptions',
@@ -377,6 +389,174 @@ export const usePaymentStore = defineStore('payment', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  /**
+   * Create recurring subscription (for business users)
+   */
+  async function createRecurringSubscription(planId, options = {}) {
+    recurringLoading.value = true
+    try {
+      if (!authStore.user?.id) {
+        throw new Error('User not authenticated')
+      }
+
+      if (!authStore.user.payment_profile_id) {
+        throw new Error('No payment profile found. Please add a payment method first.')
+      }
+
+      const payload = {
+        user_id: authStore.user.id,
+        subscription_id: planId,
+        ...options, // start_date, total_occurrences
+      }
+
+      const response = await api.post('/v2/recurring/create', payload)
+
+      if (response.data.success) {
+        // Update user data to reflect new subscription
+        await authStore.fetchUserDetails()
+        return { success: true, data: response.data.data }
+      } else {
+        return {
+          success: false,
+          message: response.data.message || 'Failed to create recurring subscription',
+        }
+      }
+    } catch (error) {
+      console.error('Recurring subscription error:', error)
+      return {
+        success: false,
+        message:
+          error.response?.data?.message ||
+          'Failed to create recurring subscription. Please try again.',
+      }
+    } finally {
+      recurringLoading.value = false
+    }
+  }
+
+  /**
+   * Cancel recurring subscription
+   */
+  async function cancelRecurringSubscription() {
+    recurringLoading.value = true
+    try {
+      if (!authStore.user?.id) {
+        throw new Error('User not authenticated')
+      }
+
+      const payload = {
+        user_id: authStore.user.id,
+      }
+
+      console.log('Cancelling recurring subscription with payload:', payload)
+      const response = await api.post('/v2/recurring/cancel', payload)
+
+      if (response.data.success) {
+        await authStore.fetchUserDetails()
+        return { success: true, data: response.data.data }
+      } else {
+        console.error('Cancel recurring failed:', response.data)
+        return {
+          success: false,
+          message: response.data.message || 'Failed to cancel recurring subscription',
+        }
+      }
+    } catch (error) {
+      console.error('Cancel recurring subscription error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        user: {
+          id: authStore.user?.id,
+          recurring_subscription_id: authStore.user?.recurring_subscription_id,
+          recurring_subscription_status: authStore.user?.recurring_subscription_status,
+        },
+      })
+      return {
+        success: false,
+        message:
+          error.response?.data?.message ||
+          'Failed to cancel recurring subscription. Please try again.',
+      }
+    } finally {
+      recurringLoading.value = false
+    }
+  }
+
+  /**
+   * Get recurring subscription status
+   */
+  async function getRecurringSubscriptionStatus() {
+    try {
+      if (!authStore.user?.id) {
+        throw new Error('User not authenticated')
+      }
+
+      const response = await api.get(`/v2/recurring/status?user_id=${authStore.user.id}`)
+      // console.log('Recurring subscription status:', response.data)
+      if (response.data.success) {
+        recurringStatus.value = response.data.data
+        return { success: true, data: response.data.data }
+      } else {
+        return {
+          success: false,
+          message: response.data.message || 'Failed to get subscription status',
+        }
+      }
+    } catch (error) {
+      console.error('Get recurring subscription status error:', error)
+      return {
+        success: false,
+        message:
+          error.response?.data?.message || 'Failed to get subscription status. Please try again.',
+      }
+    }
+  }
+
+  /**
+   * Update recurring subscription plan
+   */
+  async function updateRecurringSubscription(newPlanId) {
+    recurringLoading.value = true
+    try {
+      if (!authStore.user?.id) {
+        throw new Error('User not authenticated')
+      }
+
+      const payload = {
+        user_id: authStore.user.id,
+        new_subscription_id: newPlanId,
+      }
+
+      const response = await api.post('/v2/recurring/update', payload)
+
+      if (response.data.success) {
+        await authStore.fetchUserDetails()
+        return { success: true, data: response.data.data }
+      } else {
+        return {
+          success: false,
+          message: response.data.message || 'Failed to update recurring subscription',
+        }
+      }
+    } catch (error) {
+      console.error('Update recurring subscription error:', error)
+      return {
+        success: false,
+        message:
+          error.response?.data?.message ||
+          'Failed to update recurring subscription. Please try again.',
+      }
+    } finally {
+      recurringLoading.value = false
+    }
+  }
+
+  // Update fetchSubscriptions to use V2 by default
+  async function fetchSubscriptions() {
+    return await fetchSubscriptionsV2()
   }
 
   async function fetchCardDetails() {
@@ -405,15 +585,132 @@ export const usePaymentStore = defineStore('payment', () => {
     }
   }
 
+  /**
+   * Check unsubscribe status
+   */
+  async function checkUnsub() {
+    unsubLoading.value = true
+    try {
+      // Check if user has required data
+      if (!authStore.user?.id) {
+        console.error('No user ID available')
+        return { success: false, message: 'User not authenticated' }
+      }
+
+      if (!authStore.user?.sub_id) {
+        console.error('No subscription ID available')
+        return { success: false, message: 'No active subscription found' }
+      }
+
+      // Go directly to the working approach with required parameters
+      const formData = new FormData()
+      formData.append('user_id', String(authStore.user?.id))
+      formData.append('subscription_id', String(authStore.user?.sub_id))
+
+      const response = await api.post('/unsub/check', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+
+      if (response.data.success) {
+        unsubStatus.value = response.data.data.unsub
+        return { success: true, data: response.data.data }
+      }
+      return { success: false, message: response.data.message }
+    } catch (error) {
+      console.error('Error checking unsubscribe status:', error)
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to check unsubscribe status',
+      }
+    } finally {
+      unsubLoading.value = false
+    }
+  }
+
+  /**
+   * Initiate unsubscribe process
+   */
+  async function unsubscribe() {
+    unsubLoading.value = true
+    try {
+      const formData = new FormData()
+      formData.append('user_id', String(authStore.user?.id))
+      formData.append('subscription_id', String(authStore.user?.sub_id))
+
+      const response = await api.post('/unsub', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+      if (response.data.success) {
+        unsubMessage.value = response.data.message
+        await checkUnsub() // Refresh status
+        return { success: true, message: response.data.message }
+      }
+      return { success: false, message: response.data.message }
+    } catch (error) {
+      console.error('Error unsubscribing:', error)
+      return { success: false, message: error.response?.data?.message || 'Failed to unsubscribe' }
+    } finally {
+      unsubLoading.value = false
+    }
+  }
+
+  /**
+   * Cancel unsubscribe process
+   */
+  async function cancelUnsub() {
+    unsubLoading.value = true
+    try {
+      const formData = new FormData()
+      formData.append('user_id', String(authStore.user?.id))
+      formData.append('subscription_id', String(authStore.user?.sub_id))
+
+      const response = await api.post('/unsub/cancel', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+      if (response.data.success) {
+        unsubMessage.value = response.data.message
+        await checkUnsub() // Refresh status
+        return { success: true, message: response.data.message }
+      }
+      return { success: false, message: response.data.message }
+    } catch (error) {
+      console.error('Error canceling unsubscribe:', error)
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to cancel unsubscribe',
+      }
+    } finally {
+      unsubLoading.value = false
+    }
+  }
+
   return {
     paymentMethods,
     currentSubscription,
     subscriptions,
     loading,
     cardDetails,
+    unsubStatus,
+    unsubLoading,
+    unsubMessage,
     addPaymentMethod,
     subscribeToPlan,
     fetchSubscriptions,
     fetchCardDetails,
+    checkUnsub,
+    unsubscribe,
+    cancelUnsub,
+    recurringStatus,
+    recurringLoading,
+    createRecurringSubscription,
+    cancelRecurringSubscription,
+    getRecurringSubscriptionStatus,
+    updateRecurringSubscription,
   }
 })
