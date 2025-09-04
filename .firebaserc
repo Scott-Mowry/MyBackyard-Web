@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "my-backyard-usa"
+  },
+  "targets": {
+    "my-backyard-usa": {
+      "hosting": {
+        "website-prod": [
+          "my-backyard-usa"
+        ],
+        "website-staging": [
+          "staging-mybackyardusa"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
